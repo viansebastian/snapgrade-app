@@ -4,12 +4,14 @@ import base64
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from main_pipelines import main_circles_pipeline
+import time
 
 app = Flask(__name__)
 CORS(app)
 
 @app.route('/process-circles', methods=['POST'])
 def process_circles():
+    # process_start = time.time()
     master_sheet_file = request.files['master_sheet']
     student_answer_file = request.files['student_answer']
     
@@ -28,20 +30,27 @@ def process_circles():
         return jsonify({"error": "Failed to process the images."}), 400
 
     # processing pipeline
+    pipeline_start = time.time()
     stu_final_score, stu_answer_key, detected_total_questions, detected_mistakes = main_circles_pipeline(master_sheet, student_answer)
-
+    pipeline_end = time.time()
+    
     # convert the result image (stu_answer_key) from OpenCV to PNG format
     # then encode to base64 string
     _, buffer = cv2.imencode('.png', stu_answer_key)
     img_io = buffer.tobytes()
     img_base64 = base64.b64encode(img_io).decode('utf-8')
+    # process_end = time.time()
+    
+    print('pipeline processing time: ', pipeline_end - pipeline_start)
+    # print('total processing time: ', process_end - process_start)
 
     # response dictionary (json)
     response = {
         'score': stu_final_score,
         'total_questions': detected_total_questions,
         'mistakes': detected_mistakes,
-        'student_answer_key': img_base64  
+        'student_answer_key': img_base64,
+        'time': round((pipeline_end - pipeline_start), 3)  
     }
 
     return jsonify(response)  
